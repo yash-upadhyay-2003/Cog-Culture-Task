@@ -28,25 +28,25 @@ args = "TruthLayer API"
 name = "TruthLayer Web"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "/home/runner/workspace/.pythonlibs/bin/streamlit run web/app.py --server.port 8099 --server.address 0.0.0.0 --server.headless true"
-waitForPort = 8099
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash run_web.sh"
+waitForPort = 8099
 
 [[workflows.workflow]]
 name = "TruthLayer API"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "/home/runner/workspace/.pythonlibs/bin/uvicorn api.app.main:app --host 0.0.0.0 --port 8000 --reload"
-waitForPort = 8000
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash run_api.sh"
+waitForPort = 8000
 
 [agent]
 stack = "PNPM_WORKSPACE"
