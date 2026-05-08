@@ -49,12 +49,21 @@ class TruthLayerClient:
         if response.status_code == 200:
             return response.json()
 
+        # Parse structured error from our API
         try:
-            detail = response.json().get("detail", response.text)
+            body = response.json()
+            # Our structured error format: {success, error, details}
+            if "error" in body:
+                msg = body["error"]
+                details = body.get("details", "")
+                raise ValueError(f"{msg} {details}".strip())
+            # FastAPI default validation error format
+            detail = body.get("detail", response.text)
+            raise ValueError(f"API error {response.status_code}: {detail}")
+        except ValueError:
+            raise
         except Exception:
-            detail = response.text
-
-        raise ValueError(f"API error {response.status_code}: {detail}")
+            raise ValueError(f"API error {response.status_code}: {response.text}")
 
     def health_check(self) -> bool:
         """Check if the API server is reachable."""

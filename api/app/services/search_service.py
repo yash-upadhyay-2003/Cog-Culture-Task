@@ -1,67 +1,74 @@
 import logging
 import asyncio
 from typing import List, Dict, Any
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 from api.app.config.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
-TRUSTED_DOMAINS = [
-    "gov", "edu", "who.int", "un.org", "worldbank.org",
-    "reuters.com", "apnews.com", "bbc.com", "nature.com",
-    "science.org", "ncbi.nlm.nih.gov", "statista.com"
+# Tier 1 — highest credibility
+_TIER1 = [
+    "gov", "edu", "who.int", "un.org", "worldbank.org", "imf.org",
+    "nasa.gov", "nih.gov", "ncbi.nlm.nih.gov", "nature.com", "science.org",
+    "reuters.com", "apnews.com", "bbc.com", "bloomberg.com", "ft.com",
+    "statista.com", "gartner.com", "mckinsey.com", "oxfordeconomics.com",
+]
+# Tier 2 — moderate credibility
+_TIER2 = [
+    "wikipedia.org", "techcrunch.com", "wired.com", "theguardian.com",
+    "nytimes.com", "wsj.com", "forbes.com", "cnbc.com", "economist.com",
 ]
 
 
-class SearchService:
-    """DuckDuckGo search service for claim evidence retrieval."""
+def _source_tier(url: str) -> int:
+    for d in _TIER1:
+        if d in url:
+            return 0
+    for d in _TIER2:
+        if d in url:
+            return 1
+    return 2
 
+
+class SearchService:
     def __init__(self):
         self.max_results = get_settings().search_results_per_claim
 
     async def search(self, query: str) -> List[Dict[str, Any]]:
-        """
-        Search DuckDuckGo for evidence related to a claim.
-        Runs in a thread pool to avoid blocking the event loop.
-
-        Returns:
-            List of result dicts with title, body/snippet, href/url
-        """
         try:
             loop = asyncio.get_event_loop()
-            results = await loop.run_in_executor(
-                None,
-                self._sync_search,
-                query
-            )
-            return results
+            return await loop.run_in_executor(None, self._sync_search, query)
         except Exception as e:
-            logger.warning("Search failed for query '%s': %s", query[:60], e)
+            logger.warning("Search failed for '%s': %s", query[:60], e)
             return []
 
     def _sync_search(self, query: str) -> List[Dict[str, Any]]:
-        """Synchronous search call for executor."""
         try:
             with DDGS() as ddgs:
-                results = list(ddgs.text(
+                raw = list(ddgs.text(
                     query,
-                    max_results=self.max_results + 2,
+                    max_results=self.max_results + 4,
                     safesearch="moderate"
                 ))
-            prioritized = self._prioritize_trusted(results)
-            return prioritized[:self.max_results]
+            deduped = self._deduplicate(raw)
+            ranked = sorted(deduped, key=lambda r: _source_tier(r.get("href", r.get("url", ""))))
+            return ranked[:self.max_results]
         except Exception as e:
             logger.warning("DDGS search error: %s", e)
             return []
 
-    def _prioritize_trusted(self, results: List[Dict]) -> List[Dict]:
-        """Sort results to put trusted sources first."""
-        trusted = []
-        others = []
+    def _deduplicate(self, results: List[Dict]) -> List[Dict]:
+        seen_domains, seen_urls, out = set(), set(), []
         for r in results:
             url = r.get("href", r.get("url", ""))
-            if any(domain in url for domain in TRUSTED_DOMAINS):
-                trusted.append(r)
-            else:
-                others.append(r)
-        return trusted + others
+            try:
+                from urllib.parse import urlparse
+                domain = urlparse(url).netloc
+            except Exception:
+                domain = url
+            if url in seen_urls or domain in seen_domains:
+                continue
+            seen_urls.add(url)
+            seen_domains.add(domain)
+            out.append(r)
+        return out

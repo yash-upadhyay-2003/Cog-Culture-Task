@@ -1,52 +1,57 @@
-CLAIM_EXTRACTION_PROMPT = """You are a precise fact-checking assistant. Extract ONLY verifiable factual claims from the text below.
+CLAIM_EXTRACTION_PROMPT = """You are a fact-checking assistant. Extract verifiable factual statements from the text.
 
-Extract ONLY:
-- Measurable statements with specific numbers
-- Dates and timelines
-- Percentages and statistics
-- Financial figures and economic data
-- Scientific or technical claims
-- Named entities with attributed facts
+Extract statements containing: dates, years, statistics, percentages, financial figures, company facts, market claims, scientific assertions, named entities with attributed facts, measurable comparisons.
 
-IGNORE completely:
-- Opinions and subjective statements
-- Vague marketing language
-- Predictions and speculation
-- General descriptions without specifics
-
-Return a JSON array of strings. Each string is one factual claim, stated as a complete sentence.
-Return MAXIMUM {max_claims} claims, prioritizing the most specific and verifiable ones.
-
-If no verifiable claims are found, return an empty array [].
+Be inclusive — if a statement has a number, date, or named fact, include it.
+Return MAXIMUM {max_claims} of the strongest, most specific claims.
+Return ONLY a valid JSON array of strings. No markdown, no explanation.
 
 TEXT:
-{text}
-
-Return ONLY valid JSON array. No explanation, no markdown, no extra text."""
+{text}"""
 
 
-VERIFICATION_PROMPT = """You are a rigorous fact-checker. Analyze the following claim against the provided evidence from web searches.
+VERIFICATION_PROMPT = """You are an expert fact-checker. Analyze this claim against the evidence below.
 
 CLAIM: {claim}
 
-SEARCH EVIDENCE:
+EVIDENCE:
 {evidence}
 
-Your task:
-1. Determine if the claim is: Verified, Inaccurate, or False
-   - Verified: Evidence supports the claim
-   - Inaccurate: Claim has minor errors or outdated info
-   - False: Evidence contradicts the claim
-   - Unverifiable: No relevant evidence found
+Classify the verdict precisely:
+- Verified: Evidence clearly supports the claim
+- Inaccurate: Claim is partially correct but contains errors, outdated data, or exaggeration
+- Misleading: Claim is technically true but omits critical context or is deceptive
+- False: Evidence directly contradicts the claim
+- Unverifiable: No relevant evidence found
 
-2. Provide a confidence score (0-100)
-3. If not Verified, provide the correct fact
-4. Explain your reasoning concisely
+Confidence scoring guide:
+- Strong multi-source agreement: 88-97
+- Moderate evidence: 70-87
+- Weak or conflicting evidence: 45-69
+- Minimal evidence: 20-44
 
-Respond ONLY with valid JSON in this exact format:
+Rules:
+- Never return 100% confidence
+- Calibrate based on source quality and agreement
+- Reasoning must be 2-3 sentences max, professional and concise
+
+Respond ONLY with valid JSON:
 {{
-  "verdict": "Verified" | "Inaccurate" | "False" | "Unverifiable",
-  "confidence": <number 0-100>,
-  "correct_fact": "<corrected fact or empty string if verified>",
-  "reasoning": "<2-3 sentence explanation>"
+  "verdict": "Verified" | "Inaccurate" | "Misleading" | "False" | "Unverifiable",
+  "confidence": <integer 0-97>,
+  "correct_fact": "<corrected fact or empty string if Verified>",
+  "reasoning": "<2-3 sentence professional explanation>"
 }}"""
+
+
+SUMMARY_PROMPT = """You are an AI analyst. Generate a concise document trust summary.
+
+VERIFICATION RESULTS:
+{results_summary}
+
+Write a 2-3 sentence professional summary covering:
+- What the document claims overall
+- How many claims were verified vs false/inaccurate
+- The overall reliability assessment
+
+Be direct, analytical, and professional. No fluff. Output plain text only."""

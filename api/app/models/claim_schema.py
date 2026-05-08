@@ -6,6 +6,7 @@ from enum import Enum
 class Verdict(str, Enum):
     VERIFIED = "Verified"
     INACCURATE = "Inaccurate"
+    MISLEADING = "Misleading"
     FALSE = "False"
     UNVERIFIABLE = "Unverifiable"
 
@@ -30,6 +31,8 @@ class VerificationResponse(BaseModel):
     total_claims: int
     processing_time_seconds: float
     document_excerpt: Optional[str] = None
+    trust_score: Optional[float] = None
+    summary: Optional[str] = None
 
 
 class ErrorResponse(BaseModel):

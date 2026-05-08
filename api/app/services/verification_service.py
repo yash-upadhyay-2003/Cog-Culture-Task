@@ -6,26 +6,25 @@ from api.app.models.claim_schema import ClaimResult, SearchResult, Verdict, Veri
 from api.app.services.groq_service import GroqService
 from api.app.services.search_service import SearchService
 from api.app.utils.verifier import verify_claim
+from api.app.utils.prompts import SUMMARY_PROMPT
 
 logger = logging.getLogger(__name__)
 
 
-class VerificationService:
-    """Orchestrates the full claim verification pipeline."""
+def _compute_trust_score(results: List[ClaimResult]) -> float:
+    if not results:
+        return 0.0
+    weights = {"Verified": 1.0, "Inaccurate": 0.4, "Misleading": 0.2, "False": 0.0, "Unverifiable": 0.5}
+    score = sum(weights.get(r.verdict.value, 0.5) * (r.confidence / 100) for r in results)
+    return round((score / len(results)) * 100, 1)
 
+
+class VerificationService:
     def __init__(self):
         self.groq = GroqService()
         self.search = SearchService()
 
-    async def verify_all(
-        self,
-        claims: List[str],
-        document_excerpt: str = ""
-    ) -> VerificationResponse:
-        """
-        Verify a list of claims concurrently.
-        Processes all claims in parallel, bounded by semaphore for rate limiting.
-        """
+    async def verify_all(self, claims: List[str], document_excerpt: str = "") -> VerificationResponse:
         start_time = time.time()
         semaphore = asyncio.Semaphore(3)
 
@@ -56,17 +55,46 @@ class VerificationService:
                         verdict=Verdict.UNVERIFIABLE,
                         confidence=0,
                         correct_fact="",
-                        reasoning=f"Verification failed: {str(e)}",
+                        reasoning="Verification could not be completed for this claim.",
                         sources=[]
                     )
 
-        tasks = [bounded_verify(claim) for claim in claims]
-        results = await asyncio.gather(*tasks)
+        results = list(await asyncio.gather(*[bounded_verify(c) for c in claims]))
         elapsed = round(time.time() - start_time, 2)
+        trust_score = _compute_trust_score(results)
+
+        # Generate AI summary
+        summary = await self._generate_summary(results)
 
         return VerificationResponse(
-            claims=list(results),
+            claims=results,
             total_claims=len(results),
             processing_time_seconds=elapsed,
-            document_excerpt=document_excerpt[:300] if document_excerpt else None
+            document_excerpt=document_excerpt[:300] if document_excerpt else None,
+            trust_score=trust_score,
+            summary=summary
         )
+
+    async def _generate_summary(self, results: List[ClaimResult]) -> str:
+        counts = {"Verified": 0, "Inaccurate": 0, "Misleading": 0, "False": 0, "Unverifiable": 0}
+        for r in results:
+            counts[r.verdict.value] = counts.get(r.verdict.value, 0) + 1
+
+        results_summary = (
+            f"Total claims: {len(results)}. "
+            f"Verified: {counts['Verified']}, "
+            f"Inaccurate: {counts['Inaccurate']}, "
+            f"Misleading: {counts['Misleading']}, "
+            f"False: {counts['False']}, "
+            f"Unverifiable: {counts['Unverifiable']}."
+        )
+        try:
+            prompt = SUMMARY_PROMPT.format(results_summary=results_summary)
+            return await self.groq.complete(prompt=prompt, max_tokens=150, temperature=0.3)
+        except Exception:
+            v, i, f = counts["Verified"], counts["Inaccurate"], counts["False"]
+            return (
+                f"This document contains {len(results)} factual claims. "
+                f"{v} were verified, {i} were inaccurate, and {f} were false. "
+                f"Trust score reflects overall evidence quality."
+            )
