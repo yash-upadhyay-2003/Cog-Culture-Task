@@ -1,3 +1,5 @@
+import sys, os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import queue
 import threading
 import time
@@ -7,7 +9,7 @@ import streamlit as st
 from components.results import render_results_table, render_summary_metrics
 from components.status import STEPS, render_how_it_works
 from components.upload import render_upload_section
-from services.api_client import TruthLayerClient
+from services.pipeline import run_verification
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -365,7 +367,7 @@ for k, v in [
     if k not in st.session_state:
         st.session_state[k] = v
 
-client = TruthLayerClient()
+client = None  # no longer needed — using direct pipeline
 
 # ── Upload ────────────────────────────────────────────────────────────────────
 uploaded_file, verify_clicked = render_upload_section()
@@ -390,7 +392,7 @@ if verify_clicked and uploaded_file and not st.session_state.processing:
 
     def _call_api():
         try:
-            result = client.verify_pdf(file_bytes, file_name)
+            result = run_verification(file_bytes, file_name)
             q.put(("ok", result))
         except Exception as e:
             q.put(("err", str(e)))

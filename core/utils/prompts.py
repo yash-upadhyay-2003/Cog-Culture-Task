@@ -17,30 +17,22 @@ CLAIM: {claim}
 EVIDENCE:
 {evidence}
 
-Classify the verdict precisely:
+Classify the verdict:
 - Verified: Evidence clearly supports the claim
-- Inaccurate: Claim is partially correct but contains errors, outdated data, or exaggeration
-- Misleading: Claim is technically true but omits critical context or is deceptive
+- Inaccurate: Claim has errors, outdated data, or exaggeration
+- Misleading: Technically true but omits critical context
 - False: Evidence directly contradicts the claim
 - Unverifiable: No relevant evidence found
 
-Confidence scoring guide:
-- Strong multi-source agreement: 88-97
-- Moderate evidence: 70-87
-- Weak or conflicting evidence: 45-69
-- Minimal evidence: 20-44
-
-Rules:
-- Never return 100% confidence
-- Calibrate based on source quality and agreement
-- Reasoning must be 2-3 sentences max, professional and concise
+Confidence guide: strong multi-source=88-97, moderate=70-87, weak/conflicting=45-69
+Never return 100%. Reasoning must be 2-3 sentences max.
 
 Respond ONLY with valid JSON:
 {{
   "verdict": "Verified" | "Inaccurate" | "Misleading" | "False" | "Unverifiable",
   "confidence": <integer 0-97>,
   "correct_fact": "<corrected fact or empty string if Verified>",
-  "reasoning": "<2-3 sentence professional explanation>"
+  "reasoning": "<2-3 sentence explanation>"
 }}"""
 
 
@@ -49,9 +41,4 @@ SUMMARY_PROMPT = """You are an AI analyst. Generate a concise document trust sum
 VERIFICATION RESULTS:
 {results_summary}
 
-Write a 2-3 sentence professional summary covering:
-- What the document claims overall
-- How many claims were verified vs false/inaccurate
-- The overall reliability assessment
-
-Be direct, analytical, and professional. No fluff. Output plain text only."""
+Write a 2-3 sentence professional summary covering what the document claims, how many were verified vs false, and overall reliability. Be direct. Output plain text only."""

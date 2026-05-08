@@ -1,65 +1,68 @@
-# TruthLayer AI — API Flow
+# TruthLayer AI — Verification Pipeline Flow
 
-## POST /verify
+## How It Works
 
-### Request
-```
-Content-Type: multipart/form-data
-Body: file=<pdf_bytes>
-```
+No HTTP API. The Streamlit app calls the pipeline directly.
 
-### Step-by-Step Pipeline
+## Pipeline Steps
 
 ```
-1. PDF Upload
+1. PDF Upload (Streamlit UI)
    └── Validate: .pdf extension, non-empty, ≤20MB
 
-2. Text Extraction (PyMuPDF)
-   └── Raises 422 if: empty, scanned, or corrupted
+2. Text Extraction  (core/utils/pdf_extractor.py)
+   └── PyMuPDF extracts text layer
+   └── Raises ValueError if: empty, scanned, or corrupted
 
-3. Claim Detection (Groq LLM)
-   └── Prompt: extract only measurable/statistical claims
-   └── Returns: JSON array of claim strings (max 10)
-   └── Raises 422 if: no claims found
+3. Claim Detection  (core/utils/claim_detector.py)
+   └── Step 1: Groq LLM extracts factual claims (JSON array)
+   └── Step 2: Quality filter — rejects fragments, isolated numbers
+   └── Step 3: Heuristic fallback if LLM returns nothing
+   └── Raises ValueError if: no valid claims found
 
-4. Concurrent Verification (asyncio, semaphore=3)
+4. Concurrent Verification  (core/services/verification_service.py)
+   └── asyncio.gather() with Semaphore(3)
    └── For each claim:
-       a. DuckDuckGo search (3-5 results)
-       b. Prioritize trusted domains (.gov, .edu, WHO, Reuters...)
-       c. Format evidence block
-       d. Groq LLM verdict (with fallback model)
-       e. Parse: verdict, confidence, correct_fact, reasoning
+       a. DuckDuckGo search (4 results, deduplicated)
+       b. Source credibility ranking (Tier1 > Tier2 > other)
+       c. Groq LLM verdict generation
+       d. Confidence calibration + natural variation
+       e. Returns: verdict, confidence, correct_fact, reasoning
 
-5. Response Assembly
-   └── Returns: VerificationResponse JSON
+5. Trust Score + Summary
+   └── Weighted trust score (0–100) based on verdict distribution
+   └── AI-generated document summary via Groq
+
+6. Results Display  (web/components/results.py)
+   └── Metrics row: Total, Verified, Inaccurate, Misleading, False, Avg Conf, Trust
+   └── Trust bar
+   └── Per-claim cards with verdict badge, confidence bar, sources
+   └── CSV export
 ```
 
-### Response
-```json
-{
-  "claims": [
-    {
-      "claim": "string",
-      "verdict": "Verified | Inaccurate | False | Unverifiable",
-      "confidence": 0.0,
-      "correct_fact": "string",
-      "reasoning": "string",
-      "sources": [
-        { "title": "", "snippet": "", "url": "" }
-      ]
-    }
-  ],
-  "total_claims": 0,
-  "processing_time_seconds": 0.0,
-  "document_excerpt": "string"
-}
-```
+## Verdict Types
 
-### Error Codes
-| Code | Meaning |
-|------|---------|
-| 400 | Not a PDF, or file is empty |
-| 413 | File exceeds 20MB limit |
-| 422 | No text extracted, or no claims detected |
-| 503 | AI/Groq service unavailable or key missing |
-| 500 | Internal server error |
+| Verdict | Meaning |
+|---|---|
+| Verified | Evidence clearly supports the claim |
+| Inaccurate | Claim has errors, outdated data, or exaggeration |
+| Misleading | Technically true but omits critical context |
+| False | Evidence directly contradicts the claim |
+| Unverifiable | No relevant evidence found |
+
+## Confidence Scoring
+
+| Range | Meaning |
+|---|---|
+| 88–97% | Strong multi-source agreement |
+| 70–87% | Moderate evidence |
+| 45–69% | Weak or conflicting evidence |
+| 0–44% | Minimal evidence |
+
+Max confidence is capped at 97% — never 100%.
+
+## Deployment
+
+- **Streamlit Cloud**: Set `GROQ_API_KEY` in Secrets dashboard
+- **Local**: Set `GROQ_API_KEY` in `.env` file
+- **Main file**: `web/app.py`

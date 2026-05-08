@@ -33,8 +33,3 @@ class VerificationResponse(BaseModel):
     document_excerpt: Optional[str] = None
     trust_score: Optional[float] = None
     summary: Optional[str] = None
-
-
-class ErrorResponse(BaseModel):
-    error: str
-    detail: str = ""

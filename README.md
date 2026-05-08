@@ -2,6 +2,8 @@
 
 > AI-powered fact-checking SaaS — upload a PDF, verify its claims against live web data in seconds.
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io)
+
 ---
 
 ## Problem Statement
@@ -14,12 +16,18 @@ Misinformation travels faster than fact-checking. Research papers, reports, and 
 
 - **PDF Upload** — drag-and-drop any text-based PDF (up to 20MB)
 - **Claim Extraction** — LLM-powered detection of measurable, verifiable claims only
+- **Heuristic Fallback** — regex-based extraction when LLM returns nothing
 - **Live Web Search** — DuckDuckGo search with trusted-source prioritization
 - **Hybrid Verification** — rule-based numeric checks + LLM semantic reasoning
-- **Structured Verdicts** — `Verified`, `Inaccurate`, `False`, or `Unverifiable`
-- **Evidence Drill-down** — expandable reasoning, correct facts, and source URLs
-- **Model Fallback** — automatic switch from `llama3-70b-8192` to `mixtral-8x7b-32768`
+- **Nuanced Verdicts** — `Verified`, `Inaccurate`, `Misleading`, `False`, or `Unverifiable`
+- **Calibrated Confidence** — realistic scoring with source quality bonuses (never 100%)
+- **Trust Score** — weighted document-level reliability score (0–100)
+- **AI Summary** — auto-generated document analysis after verification
+- **Evidence Drill-down** — reasoning, corrected facts, and source URLs per claim
+- **CSV Export** — download full verification report
+- **Model Fallback** — automatic switch from `llama-3.3-70b-versatile` to `llama-3.1-8b-instant`
 - **Zero Persistence** — fully stateless, no database, no user data stored
+- **Single Process** — no separate backend server, deploys directly on Streamlit Cloud
 
 ---
 
@@ -29,64 +37,64 @@ Misinformation travels faster than fact-checking. Research papers, reports, and 
 User Browser
     │
     ▼
-Streamlit Frontend (web/)
-    │ POST /verify (PDF bytes)
-    ▼
-FastAPI Backend (api/)
-    ├── PyMuPDF — text extraction
-    ├── Groq LLM — claim detection
-    └── For each claim (concurrent):
-        ├── DuckDuckGo Search
-        └── Groq LLM — verdict + reasoning
+Streamlit App (web/app.py)
     │
     ▼
-JSON Response → Streamlit Results Table
+web/services/pipeline.py
+    │
+    ├── core/utils/pdf_extractor.py     — PyMuPDF text extraction
+    ├── core/utils/claim_detector.py    — LLM + heuristic claim extraction
+    └── core/services/verification_service.py
+        ├── core/services/search_service.py   — DuckDuckGo + source ranking
+        └── core/services/groq_service.py     — Groq LLM + model fallback
+    │
+    ▼
+Results → Streamlit UI
 ```
 
 ---
 
-## Monorepo Structure
+## Project Structure
 
 ```
 truthlayer-ai/
-├── README.md
-├── .env.example
-├── docker-compose.yml
-├── requirements.txt
 │
-├── api/                          # FastAPI backend
-│   ├── app/
-│   │   ├── main.py               # App entrypoint, CORS, routers
-│   │   ├── routes/verify.py      # POST /verify endpoint
-│   │   ├── services/
-│   │   │   ├── groq_service.py   # Groq API client + model fallback
-│   │   │   ├── search_service.py # DuckDuckGo search + source ranking
-│   │   │   └── verification_service.py  # Async orchestration
-│   │   ├── utils/
-│   │   │   ├── pdf_extractor.py  # PyMuPDF text extraction
-│   │   │   ├── claim_detector.py # LLM claim extraction
-│   │   │   ├── verifier.py       # Per-claim verify logic
-│   │   │   ├── verdict_engine.py # Rule-based numeric checks
-│   │   │   ├── prompts.py        # All LLM prompt templates
-│   │   │   └── helpers.py        # JSON parsing, text utilities
-│   │   ├── models/claim_schema.py # Pydantic models
-│   │   └── config/settings.py    # Pydantic settings
-│   ├── requirements.txt
-│   └── Dockerfile
+├── core/                          # All AI/ML logic (no web framework)
+│   ├── config.py                  # Reads Streamlit secrets + env vars
+│   ├── models/
+│   │   └── schema.py              # Pydantic data models
+│   ├── services/
+│   │   ├── groq_service.py        # Groq LLM client + model fallback
+│   │   ├── search_service.py      # DuckDuckGo search + source ranking
+│   │   └── verification_service.py  # Async orchestration + trust score
+│   └── utils/
+│       ├── pdf_extractor.py       # PyMuPDF text extraction
+│       ├── claim_detector.py      # LLM + heuristic claim extraction
+│       ├── verifier.py            # Per-claim verify logic
+│       ├── helpers.py             # JSON parsing, claim validation
+│       └── prompts.py             # All LLM prompt templates
 │
-├── web/                          # Streamlit frontend
-│   ├── app.py                    # Main Streamlit app
+├── web/                           # Streamlit frontend
+│   ├── app.py                     # Main Streamlit app
 │   ├── components/
-│   │   ├── upload.py             # File uploader component
-│   │   ├── results.py            # Results table + expanders
-│   │   └── status.py             # Processing animations
-│   ├── services/api_client.py    # HTTP client for FastAPI
-│   ├── requirements.txt
-│   └── Dockerfile
+│   │   ├── upload.py              # PDF upload component
+│   │   ├── results.py             # Results dashboard + export
+│   │   └── status.py              # Processing animation
+│   └── services/
+│       └── pipeline.py            # Calls core pipeline synchronously
 │
-└── docs/
-    ├── architecture.md
-    └── api-flow.md
+├── docs/
+│   ├── architecture.md
+│   └── api-flow.md
+│
+├── .streamlit/
+│   ├── config.toml                # Theme + server config
+│   └── secrets.toml               # Local secrets (gitignored)
+│
+├── .env.example
+├── .gitignore
+├── requirements.txt               # Single requirements file
+└── README.md
 ```
 
 ---
@@ -96,13 +104,11 @@ truthlayer-ai/
 | Layer | Technology |
 |-------|-----------|
 | Frontend | Streamlit 1.35+ |
-| Backend | FastAPI + Uvicorn |
-| AI | Groq API (`llama3-70b-8192` / `mixtral-8x7b-32768`) |
+| AI | Groq API (`llama-3.3-70b-versatile` / `llama-3.1-8b-instant`) |
 | PDF Parsing | PyMuPDF (fitz) |
-| Web Search | duckduckgo-search |
-| HTTP Client | httpx |
+| Web Search | ddgs (DuckDuckGo) |
 | Validation | Pydantic v2 |
-| Containerization | Docker + Docker Compose |
+| Deployment | Streamlit Cloud |
 
 ---
 
@@ -110,65 +116,35 @@ truthlayer-ai/
 
 ```
 1. CLAIM EXTRACTION
-   Prompt → Groq LLM
-   Extract only: statistics, dates, percentages, financial figures, technical claims
-   Ignore: opinions, vague marketing text, speculation
-   Output: JSON array of claim strings (max 10)
+   PDF Text → Groq LLM → JSON array of claims
+   Fallback: regex heuristics for numbers, dates, percentages
+   Filter: reject fragments, isolated years, headings
 
 2. EVIDENCE GATHERING (per claim, concurrent)
-   Query → DuckDuckGo (3-5 results)
-   Prioritize: .gov, .edu, WHO, Reuters, AP, BBC, Nature, NCBI
-   Format evidence block for LLM context
+   Query → DuckDuckGo (4 results, deduplicated)
+   Rank: Tier1 (.gov, .edu, Reuters, WHO) > Tier2 > other
 
 3. VERDICT GENERATION (per claim)
-   Rule-based: numeric overlap check → confidence adjustment
-   LLM-based: semantic comparison, contradiction detection
-   Output: verdict + confidence + correct_fact + reasoning
+   Evidence → Groq LLM → verdict + confidence + reasoning
+   Verdicts: Verified / Inaccurate / Misleading / False / Unverifiable
+   Confidence: capped at 97%, source quality bonus applied
+
+4. TRUST SCORE + SUMMARY
+   Weighted score across all verdicts (0–100)
+   AI-generated 2-3 sentence document summary
 ```
 
 ---
 
-## API Reference
+## Verdict Reference
 
-### `POST /verify`
-
-Upload a PDF and receive structured fact-check results.
-
-**Request:** `multipart/form-data` with `file` field (PDF)
-
-**Response:**
-```json
-{
-  "claims": [
-    {
-      "claim": "Global temperatures rose by 1.1°C since pre-industrial levels.",
-      "verdict": "Verified",
-      "confidence": 92.0,
-      "correct_fact": "",
-      "reasoning": "Multiple IPCC and NASA sources confirm this figure.",
-      "sources": [
-        { "title": "IPCC Report", "snippet": "...", "url": "https://..." }
-      ]
-    }
-  ],
-  "total_claims": 1,
-  "processing_time_seconds": 8.4,
-  "document_excerpt": "..."
-}
-```
-
-**Verdicts:**
 | Verdict | Meaning |
 |---------|---------|
-| `Verified` | Evidence supports the claim |
-| `Inaccurate` | Claim has minor errors or outdated data |
-| `False` | Evidence contradicts the claim |
+| `Verified` | Evidence clearly supports the claim |
+| `Inaccurate` | Claim has errors, outdated data, or exaggeration |
+| `Misleading` | Technically true but omits critical context |
+| `False` | Evidence directly contradicts the claim |
 | `Unverifiable` | No relevant evidence found |
-
-**Other endpoints:**
-- `GET /health` — liveness check
-- `GET /docs` — Swagger UI
-- `GET /redoc` — ReDoc UI
 
 ---
 
@@ -185,35 +161,41 @@ Upload a PDF and receive structured fact-check results.
 git clone <repo-url>
 cd truthlayer-ai
 
-# 2. Create and activate virtual environment
+# 2. Create virtual environment
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # Mac/Linux
 
-# 3. Install all dependencies
+# 3. Install dependencies
 pip install -r requirements.txt
 
 # 4. Set environment variables
 cp .env.example .env
-# Edit .env and add your GROQ_API_KEY
+# Edit .env and add: GROQ_API_KEY=your_key_here
 
-# 5. Start FastAPI backend (terminal 1)
-uvicorn api.app.main:app --host 0.0.0.0 --port 8000 --reload
-
-# 6. Start Streamlit frontend (terminal 2)
-streamlit run web/app.py --server.port 8501
+# 5. Run
+streamlit run web/app.py
 ```
 
-### Docker Deployment
+App opens at: [http://localhost:8501](http://localhost:8501)
 
-```bash
-# Build and start both services
-cp .env.example .env  # Edit and add GROQ_API_KEY
-docker-compose up --build
+---
+
+## Deployment on Streamlit Cloud
+
+1. Push repo to GitHub
+2. Go to [share.streamlit.io](https://share.streamlit.io) → **New app**
+3. Select your repository and branch
+4. Set **Main file path**: `web/app.py`
+5. Click **Advanced settings → Secrets** and add:
+
+```toml
+GROQ_API_KEY = "your_groq_api_key_here"
 ```
 
-Access:
-- Streamlit UI: `http://localhost:8501`
-- FastAPI Docs: `http://localhost:8000/docs`
+6. Click **Deploy**
+
+No separate backend needed — the entire app runs as a single Streamlit process.
 
 ---
 
@@ -222,48 +204,22 @@ Access:
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `GROQ_API_KEY` | **Yes** | — | Groq API key from console.groq.com |
-| `GROQ_MODEL_PRIMARY` | No | `llama3-70b-8192` | Primary LLM model |
-| `GROQ_MODEL_FALLBACK` | No | `mixtral-8x7b-32768` | Fallback LLM model |
+| `GROQ_MODEL_PRIMARY` | No | `llama-3.3-70b-versatile` | Primary LLM model |
+| `GROQ_MODEL_FALLBACK` | No | `llama-3.1-8b-instant` | Fallback LLM model |
 | `MAX_CLAIMS` | No | `10` | Max claims to extract per document |
 | `SEARCH_RESULTS_PER_CLAIM` | No | `4` | Search results fetched per claim |
-| `API_BASE_URL` | No | `http://localhost:8000` | FastAPI URL (for Streamlit) |
-| `API_TIMEOUT` | No | `120` | Request timeout in seconds |
-
----
-
-## Deployment
-
-### Streamlit Cloud
-1. Push to GitHub
-2. Connect repo at [share.streamlit.io](https://share.streamlit.io)
-3. Set main file: `web/app.py`
-4. Add `GROQ_API_KEY` and `API_BASE_URL` in Secrets
-5. Deploy FastAPI separately on Render, Railway, or Fly.io
-
-### Render
-1. Create a **Web Service** → connect GitHub repo
-2. Build command: `pip install -r requirements.txt`
-3. Start command: `uvicorn api.app.main:app --host 0.0.0.0 --port $PORT`
-4. Add environment variables in the Render dashboard
 
 ---
 
 ## Future Roadmap
 
 - [ ] Scanned PDF support via OCR (pytesseract / AWS Textract)
-- [ ] Claim-level source confidence scoring
-- [ ] Batch document processing (multiple PDFs)
-- [ ] Export results to CSV / PDF report
 - [ ] URL input support (scrape + verify web articles)
-- [ ] API key dashboard with usage tracking
-- [ ] Webhook support for async large-document processing
+- [ ] Batch document processing (multiple PDFs)
+- [ ] PDF export of verification report
+- [ ] Claim-level source confidence scoring
 - [ ] Fine-tuned claim extraction model
-
----
-
-## Screenshots
-
-> _Add screenshots to `docs/screenshots/` after deployment._
+- [ ] Webhook support for async large-document processing
 
 ---
 
