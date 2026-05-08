@@ -59,10 +59,18 @@ async def verify_claim(claim: str, groq_service: GroqService, search_service: Se
         reasoning = ". ".join(sentences[:3]).rstrip(".") + "."
 
     raw_fact = str(parsed.get("correct_fact", "") or "").strip()
-    if verdict == "Verified" or raw_fact.lower() in ("", "nan", "null", "none", "n/a", "na"):
+
+    if verdict == "Verified":
+        correct_fact = "Claim verified successfully."
+    elif raw_fact.lower() in ("", "nan", "null", "none", "n/a", "na"):
         correct_fact = ""
     else:
-        correct_fact = raw_fact
+        # Truncate overly long corrections to 1 sentence
+        sentences = raw_fact.split(". ")
+        correct_fact = sentences[0].rstrip(".") + "." if sentences else raw_fact
+        # Cap at 120 chars for clean display
+        if len(correct_fact) > 120:
+            correct_fact = correct_fact[:117].rstrip() + "..."
 
     return {"verdict": verdict, "confidence": round(confidence, 1),
             "correct_fact": correct_fact, "reasoning": reasoning, "sources": _fmt(search_results)}

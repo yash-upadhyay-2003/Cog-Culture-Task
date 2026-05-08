@@ -27,11 +27,17 @@ Classify the verdict:
 Confidence guide: strong multi-source=88-97, moderate=70-87, weak/conflicting=45-69
 Never return 100%. Reasoning must be 2-3 sentences max.
 
+correct_fact rules:
+- If Verified: return empty string ""
+- If not Verified: return ONE short sentence with the correct fact (max 15 words)
+- Style: "Tesla sold ~1.8M vehicles in 2023." NOT a paragraph
+- Never explain, never use CAGR formulas, never write multiple sentences
+
 Respond ONLY with valid JSON:
 {{
   "verdict": "Verified" | "Inaccurate" | "Misleading" | "False" | "Unverifiable",
   "confidence": <integer 0-97>,
-  "correct_fact": "<corrected fact or empty string if Verified>",
+  "correct_fact": "<one short sentence or empty string>",
   "reasoning": "<2-3 sentence explanation>"
 }}"""
 
