@@ -1,0 +1,353 @@
+Build a production-style AI SaaS application using a MONOREPO architecture.
+
+PROJECT NAME:
+TruthLayer AI
+
+PRODUCT OVERVIEW:
+TruthLayer AI is an AI-powered fact-checking SaaS platform that verifies factual claims from uploaded PDFs using live web data and LLM reasoning.
+
+The system should:
+
+1. Upload PDF
+2. Extract text
+3. Detect factual claims
+4. Search live web
+5. Verify claims
+6. Return verdicts:
+
+   * Verified
+   * Inaccurate
+   * False
+
+TECH STACK:
+
+Frontend:
+
+* Streamlit
+* Python
+
+Backend API:
+
+* FastAPI
+* Python
+
+AI:
+
+* Groq API
+* llama3-70b-8192
+* mixtral-8x7b-32768 fallback
+
+Libraries:
+
+* PyMuPDF
+* duckduckgo-search
+* pandas
+* requests
+* python-dotenv
+* pydantic
+* uvicorn
+
+DO NOT USE:
+
+* React
+* Next.js
+* LangChain
+* MongoDB
+* PostgreSQL
+* Redis
+* Firebase
+* Vector databases
+* Tailwind
+* Complex agent frameworks
+
+ARCHITECTURE:
+Use monorepo architecture with separate:
+
+* api/
+* web/
+
+FINAL MONOREPO STRUCTURE:
+
+truthlayer-ai/
+│
+├── README.md
+├── .gitignore
+├── docker-compose.yml
+├── requirements.txt
+├── .env.example
+│
+├── api/
+│   ├── app/
+│   │   ├── main.py
+│   │   │
+│   │   ├── routes/
+│   │   │   └── verify.py
+│   │   │
+│   │   ├── services/
+│   │   │   ├── groq_service.py
+│   │   │   ├── search_service.py
+│   │   │   └── verification_service.py
+│   │   │
+│   │   ├── utils/
+│   │   │   ├── pdf_extractor.py
+│   │   │   ├── claim_detector.py
+│   │   │   ├── verifier.py
+│   │   │   ├── verdict_engine.py
+│   │   │   ├── prompts.py
+│   │   │   └── helpers.py
+│   │   │
+│   │   ├── models/
+│   │   │   └── claim_schema.py
+│   │   │
+│   │   └── config/
+│   │       └── settings.py
+│   │
+│   ├── requirements.txt
+│   └── Dockerfile
+│
+├── web/
+│   ├── app.py
+│   ├── components/
+│   │   ├── upload.py
+│   │   ├── results.py
+│   │   └── status.py
+│   │
+│   ├── services/
+│   │   └── api_client.py
+│   │
+│   ├── assets/
+│   │
+│   ├── requirements.txt
+│   └── Dockerfile
+│
+└── docs/
+├── architecture.md
+├── api-flow.md
+└── screenshots/
+
+ROOT README REQUIREMENTS:
+
+Generate a highly professional root README.md explaining:
+
+1. Product overview
+2. Problem statement
+3. Features
+4. Architecture
+5. Monorepo structure
+6. Tech stack
+7. AI workflow
+8. API flow
+9. Setup instructions
+10. Local development
+11. Environment variables
+12. Deployment instructions
+13. Future roadmap
+14. Screenshots section
+15. API endpoints
+16. License
+
+README STYLE:
+
+* modern
+* production SaaS style
+* concise
+* clean markdown
+* professional formatting
+* GitHub portfolio quality
+
+BACKEND REQUIREMENTS:
+
+Framework:
+FastAPI
+
+API responsibilities:
+
+* accept PDF upload
+* extract text
+* detect claims
+* verify claims
+* return structured JSON results
+
+MAIN ENDPOINT:
+POST /verify
+
+Response format:
+{
+"claims": [
+{
+"claim": "",
+"verdict": "",
+"confidence": 0,
+"correct_fact": "",
+"reasoning": "",
+"sources": []
+}
+]
+}
+
+API FLOW:
+PDF Upload
+→ Text Extraction
+→ Claim Detection
+→ Web Search
+→ Verification
+→ Verdict Generation
+→ JSON Response
+
+CLAIM EXTRACTION:
+Use Groq LLM.
+
+Extract ONLY:
+
+* measurable statements
+* dates
+* percentages
+* financial figures
+* statistics
+* technical claims
+
+Ignore:
+
+* opinions
+* fluff
+* vague marketing text
+
+VERIFICATION SYSTEM:
+Use hybrid verification.
+
+1. Rule-based checks:
+
+* compare numbers
+* compare dates
+* compare percentages
+
+2. LLM reasoning:
+
+* semantic comparison
+* contradiction detection
+* correction generation
+
+SEARCH LAYER:
+Use duckduckgo-search.
+
+Fetch:
+
+* title
+* snippet
+* url
+
+Limit:
+3-5 results per claim.
+
+PREFER:
+
+* government sites
+* research reports
+* official publications
+* trusted sources
+
+WEB FRONTEND REQUIREMENTS:
+
+Use Streamlit only.
+
+UI THEME:
+
+* black background
+* white typography
+* gray accents
+* minimal SaaS layout
+* premium feel
+* modern spacing
+* no flashy colors
+* no gradients
+
+WEB FLOW:
+
+1. Upload PDF
+2. Click Verify
+3. Show processing states
+4. Display results table
+5. Expand evidence per claim
+
+STREAMLIT COMPONENTS:
+Use:
+
+* st.file_uploader
+* st.spinner
+* st.progress
+* st.dataframe
+* st.expander
+* session_state
+
+RESULTS TABLE COLUMNS:
+
+* Claim
+* Verdict
+* Confidence
+* Correct Fact
+
+EXPANDABLE SECTION:
+Show:
+
+* evidence
+* reasoning
+* source URLs
+
+PERFORMANCE REQUIREMENTS:
+
+* verify max 10 claims initially
+* optimize prompts
+* minimize token usage
+* keep API latency low
+
+ERROR HANDLING:
+Handle:
+
+* empty PDF
+* API timeout
+* malformed response
+* failed extraction
+* no claims found
+
+DISPLAY USER-FRIENDLY ERRORS.
+
+NO DATABASE.
+Use stateless runtime processing only.
+
+NO AUTH.
+NO LOGIN.
+NO PAYMENT SYSTEM.
+
+GROQ CONFIG:
+Environment variable:
+GROQ_API_KEY=
+
+Preferred model:
+llama3-70b-8192
+
+Fallback:
+mixtral-8x7b-32768
+
+DEPLOYMENT:
+Optimize architecture for:
+
+* Streamlit Cloud
+* Render
+* Docker support
+
+CODE STYLE:
+
+* modular
+* production-ready
+* readable
+* typed where useful
+* clean naming conventions
+* scalable structure
+
+GOAL:
+Build a realistic AI SaaS MVP with monorepo architecture suitable for:
+
+* Product Management Trainee assignment
+* strong GitHub portfolio project
+* production-style demonstration
+* clean deployment
