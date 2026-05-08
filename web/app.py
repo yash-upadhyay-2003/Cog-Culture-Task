@@ -304,7 +304,7 @@ st.markdown("""
             <div class="tl-live-dot"></div>
             Live Verification
         </div>
-        <a class="tl-github-pill" href="https://github.com" target="_blank">
+        <a class="tl-github-pill" href="https://github.com/yash-upadhyay-2003/Cog-Culture-Task" target="_blank">
             &#9095;&nbsp;GitHub
         </a>
     </div>
